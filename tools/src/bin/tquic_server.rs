@@ -523,8 +523,14 @@ impl ConnectionHandler {
         }
         let path = Self::generate_file_path(path, &self.root);
 
-        let (status, body) = {
-            match std::fs::read(path.as_path()) {
+        let first_component = path.components().nth(1).and_then(|s| s.as_os_str().to_str());
+
+        let (status, body) = match first_component {
+            Some("mem") => match path.components().nth(2).and_then(|s|s.as_os_str().to_str()).and_then(|s| s.parse().ok()) {
+                Some(size) => (200, vec![0; size]), // todo do not allocate full length, reuse buffer
+                None => (400, b"Bad Request".to_vec())
+            },
+            _ => match std::fs::read(path.as_path()) {
                 Ok(data) => (200, data),
                 Err(_) => (404, b"Not Found!".to_vec()),
             }
